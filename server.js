@@ -7,16 +7,9 @@ const WINS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 const rooms = {};
 
 const server = http.createServer((req, res) => {
-  const url = (req.url || '/').split('?')[0];
-  let file = 'index.html', type = 'text/html; charset=utf-8';
-  if (url === '/escape') file = 'escape.html';
-  else if (/^\/mission\d{1,2}\.(jpg|jpeg|png|webp)$/.test(url)) {
-    file = url.slice(1);
-    type = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[url.split('.').pop()];
-  }
-  fs.readFile(path.join(__dirname, file), (err, data) => {
-    if (err) { res.writeHead(404); return res.end('Not found'); }
-    res.writeHead(200, { 'Content-Type': type });
+  fs.readFile(path.join(__dirname, 'index.html'), (err, data) => {
+    if (err) { res.writeHead(500); return res.end('Error'); }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(data);
   });
 });
@@ -59,7 +52,7 @@ function send(ws, room) {
 }
 function broadcast(room) { room.clients.forEach(c => send(c, room)); }
 
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ server });
 wss.on('connection', ws => {
   let room = null;
   ws.on('message', raw => {
@@ -117,13 +110,6 @@ wss.on('connection', ws => {
       for (const k in rooms) if (rooms[k] === room) delete rooms[k];
     } else broadcast(room);
   });
-});
-
-const wssEscape = new WebSocketServer({ noServer: true });
-require('./escape').attach(wssEscape);
-server.on('upgrade', (req, sock, head) => {
-  const w = (req.url || '').startsWith('/escape-ws') ? wssEscape : wss;
-  w.handleUpgrade(req, sock, head, ws => w.emit('connection', ws, req));
 });
 
 const PORT = process.env.PORT || 3000;
